@@ -1,6 +1,24 @@
+### VisualStudioCode template
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
 # Compiler files
 cache/
 out/
+
+# Bin
+bin
+
+# Lib
+lib
+lib/*
+
+# Forge
+broadcast
+forge-cache
 
 # Ignores development broadcast logs
 !/broadcast
@@ -10,5 +28,16 @@ out/
 # Docs
 docs/
 
+# Report & Coverage
+*.lcov
+lcov.info
+report/
+coverage
+
 # Dotenv file
 .env
+.env*
+
+#MacOS
+.DS_Store
+Thumbs.db
