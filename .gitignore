@@ -28,6 +28,9 @@ forge-cache
 # Docs
 docs/
 
+# prettier
+.prettier*
+
 # Report & Coverage
 *.lcov
 lcov.info
