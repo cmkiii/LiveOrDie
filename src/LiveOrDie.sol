@@ -10,7 +10,7 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {console2} from "forge-std/Test.sol";
+// import {console2} from "forge-std/Test.sol";
 
 // Events.
 event playerEliminated(address indexed _player, uint _barrelIndex);
@@ -54,7 +54,6 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
 
     uint internal barrelIndex = 0; // Number of barrels.
     mapping(uint => Barrel) internal barrels; // Maaping between BarrelID and the barrels.
-    mapping(address => bool) internal paidPlayers; // Mapping to keep track of who paid to play round 1.
 
     constructor(address initialOwner) ERC20("LiveOrDie", "LOD") ERC20Permit("LiveOrDie") Ownable(initialOwner)  {
         barrelIndex = 0;
@@ -66,22 +65,21 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
 
     /**
      * @notice Function to receive payment to enter the game and take part in the first round. 
+     * @dev We want to check that the amount paid is enough and that the player is not already in the current barrel.
+     * Todo: Check that the amount paid is not too high.
      * Todo: Could add more security, for example a blacklist of addresses.
      */
     function payEntranceFee() payable external returns (bool) {
         if (msg.value < PRICE_ROUND_ONE) {
             revert AmountIsNotEnough(msg.sender, msg.value);
         } else {
-            // Todo: Change the way we track who has paid. For now, a player could pay once and play again several times. 
-            // Todo: Use a mapping of mapping instead of a one level mapping. 
-            // Todo: That way we would know for each new barrel.
-            addPlayerToAvailableBarrel(msg.sender); // This will revert if the player is already in the current barrel.
-            paidPlayers[msg.sender] = true; // Keeps track of who has paid to take part of the game (for Roune One).
+            // Adding a player to a barrel will revert if the player is already in the current barrel.
+            addPlayerToAvailableBarrel(msg.sender); 
             return true;
         }
     }
     
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) private {
         _mint(to, amount);
     }
 
@@ -113,7 +111,7 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
      * @notice Add a player to an available barrel. Create a new barrel if needed.
      * @notice If the barrel is full we pull the trigger to eliminate one of the players.
      */
-    function addPlayerToAvailableBarrel(address _player) public {
+    function addPlayerToAvailableBarrel(address _player) private {
         if (barrels[barrelIndex].playerIndex == MAX_PLAYERS_ROUND_ONE) {
             createNewBarrel();
         } else {
@@ -176,10 +174,6 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
     function getMaxPlayersFirstRound() public pure returns (uint) {
         return MAX_PLAYERS_ROUND_ONE;
     }
-
-    function hasUserPaid(address _player) public view returns (bool) {
-        return paidPlayers[_player];
-    }
 }
 
 /**
@@ -209,7 +203,6 @@ contract LiveOrDieRoundTwo is ERC20, ERC20Burnable, Ownable {
     }
 
         function addPlayerToAvailableBarrel(address _player) public {
-            console2.log("Address _player:", _player);
             if (liveOrDie.balanceOf(_player) < 1 * 10 ** liveOrDie.decimals()) {
                 revert PlayerNeedLODTokenToPlay(_player);
             } else {

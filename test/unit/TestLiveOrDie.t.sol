@@ -45,56 +45,57 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address User2 = makeAddr("User2");
         hoax(User1, 10 ether);
         assertTrue(liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }()); // This should not revert as we are sending the minimum amount.
-        vm.prank(User1);
-        vm.expectRevert(abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1));
-        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }(); // This should revert as the player is already part of an existing barrel.
+        // liveOrDie.addPlayerToAvailableBarrel(User1);
+        // vm.prank(User1);
+        // vm.expectRevert(abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1));
+        // liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }(); // This should revert as the player is already part of an existing barrel.
         hoax(User2, 10 ether);
         vm.expectRevert(abi.encodeWithSelector(AmountIsNotEnough.selector, User2, 0.1 ether));
         liveOrDie.payEntranceFee{ value: 0.1 ether }(); // This should revert as we are not sending the minimum amount.
         assertEq(address(liveOrDie).balance, PRICE_ROUND_ONE); // Check that our smart contract received the funds from User1.
+        // assertTrue(liveOrDie.isPlayerInBarrel(0, User1));
         assertTrue(liveOrDie.isPlayerInBarrel(0, User1));
-        assertEq(liveOrDie.hasUserPaid(User1), true);
-        assertEq(liveOrDie.hasUserPaid(User2), false);
+        assertFalse(liveOrDie.isPlayerInBarrel(0, User2));
     }
 
-    function testMintingATokenForAUser() public {
-        address User1 = makeAddr("User1");
-        uint256 initialAmount = 0;
-        uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
-        assert(initialAmount == liveOrDie.balanceOf(User1));
-        liveOrDie.mint(User1, mintedAmount);
-        assert(mintedAmount == liveOrDie.balanceOf(User1));
-    }
+    // function testMintingATokenForAUser() public {
+    //     address User1 = makeAddr("User1");
+    //     uint256 initialAmount = 0;
+    //     uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
+    //     assert(initialAmount == liveOrDie.balanceOf(User1));
+    //     liveOrDie.mint(User1, mintedAmount);
+    //     assert(mintedAmount == liveOrDie.balanceOf(User1));
+    // }
 
-    function testTransferingAMintedTokenToAUser() public {
-        address User1 = makeAddr("User1");
-        uint256 initialAmount = 0;
-        uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
-        assert(initialAmount == liveOrDie.balanceOf(liveOrDie.owner())); // Initially the owner balance should be empty.
+    // function testTransferingAMintedTokenToAUser() public {
+    //     address User1 = makeAddr("User1");
+    //     uint256 initialAmount = 0;
+    //     uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
+    //     assert(initialAmount == liveOrDie.balanceOf(liveOrDie.owner())); // Initially the owner balance should be empty.
 
-        liveOrDie.mint(liveOrDie.owner(), mintedAmount);
-        assert(mintedAmount == liveOrDie.balanceOf(liveOrDie.owner())); // Then he owner balance should contain one token.
+    //     liveOrDie.mint(liveOrDie.owner(), mintedAmount);
+    //     assert(mintedAmount == liveOrDie.balanceOf(liveOrDie.owner())); // Then he owner balance should contain one token.
 
-        liveOrDie.transfer(User1, mintedAmount);
-        assert(mintedAmount == liveOrDie.balanceOf(User1)); // The User1 balance should contain one token.
-        assert(initialAmount == liveOrDie.balanceOf(liveOrDie.owner())); // The owner balance should be empty again.
-    }
+    //     liveOrDie.transfer(User1, mintedAmount);
+    //     assert(mintedAmount == liveOrDie.balanceOf(User1)); // The User1 balance should contain one token.
+    //     assert(initialAmount == liveOrDie.balanceOf(liveOrDie.owner())); // The owner balance should be empty again.
+    // }
 
-    function testTransferingAMintedTokenFromAUserToOwner() public {
-        address User1 = makeAddr("User1");
-        uint256 initialAmount = 0;
-        uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
+    // function testTransferingAMintedTokenFromAUserToOwner() public {
+    //     address User1 = makeAddr("User1");
+    //     uint256 initialAmount = 0;
+    //     uint256 mintedAmount = 1 * 10 ** liveOrDie.decimals();
 
-        liveOrDie.mint(User1, mintedAmount);
-        assert(mintedAmount == liveOrDie.balanceOf(User1)); // .
+    //     liveOrDie.mint(User1, mintedAmount);
+    //     assert(mintedAmount == liveOrDie.balanceOf(User1)); // .
 
-        vm.startPrank(User1);
-        liveOrDie.approve(liveOrDie.owner(), mintedAmount);
-        vm.stopPrank();
-        liveOrDie.transferFrom(User1, liveOrDie.owner(), mintedAmount);
-        assert(initialAmount == liveOrDie.balanceOf(User1));
-        assert(mintedAmount == liveOrDie.balanceOf(liveOrDie.owner()));
-    }
+    //     vm.startPrank(User1);
+    //     liveOrDie.approve(liveOrDie.owner(), mintedAmount);
+    //     vm.stopPrank();
+    //     liveOrDie.transferFrom(User1, liveOrDie.owner(), mintedAmount);
+    //     assert(initialAmount == liveOrDie.balanceOf(User1));
+    //     assert(mintedAmount == liveOrDie.balanceOf(liveOrDie.owner()));
+    // }
 
     function testCreateNewBarrelIncrementsBarrelIndex() public {
         liveOrDie.createNewBarrel();
@@ -105,7 +106,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address[MAX_PLAYERS_ROUND_ONE] memory Users;
         for (uint i = 0; i < Users.length; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
             assertEq(liveOrDie.getPlayerAddress(0, i), Users[i]);
         }
     }
@@ -113,20 +115,24 @@ contract TestLiveOrDie is Test, IERC20Errors {
     function testPlayerIsNotInTheBarrel() public {
         address User1 = makeAddr("User1");
         address User2 = makeAddr("User2");
-        liveOrDie.addPlayerToAvailableBarrel(User1);
+        hoax(User1, 10 ether);
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         assertFalse(liveOrDie.isPlayerInBarrel(0, User2));
     }
 
     function testCantHaveTheSamePlayerTwiceInTheSameBarrel() public {
         address User1 = makeAddr("User1");
-        liveOrDie.addPlayerToAvailableBarrel(User1);
+        hoax(User1, 10 ether);
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         vm.expectRevert(abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1));
-        liveOrDie.addPlayerToAvailableBarrel(User1);
+        vm.prank(User1);
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
     }
 
     function testPickRandomPlayerRevertsIfBarrelIsNotFull() public {
         address User1 = makeAddr("User1");
-        liveOrDie.addPlayerToAvailableBarrel(User1);
+        hoax(User1, 10 ether);
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         vm.expectRevert(abi.encodeWithSelector(BarrelIsNotFull.selector, 1));
         liveOrDie.pickRandomPlayer(MAX_PLAYERS_ROUND_ONE);
     }
@@ -135,14 +141,16 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address User1 = makeAddr("User1");
         vm.expectEmit(true, false, false, true);
         emit playerAddedToABarrel(User1, 0);
-        liveOrDie.addPlayerToAvailableBarrel(User1);
+        hoax(User1, 10 ether);
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
     }
 
     function testPullTheTriggerEmitsPlayerEliminatedEvent() public {
         address[MAX_PLAYERS_ROUND_ONE] memory Users;
         for (uint i = 0; i < Users.length; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         }
         vm.expectEmit(false, false, false, true);
         emit playerEliminated(Users[1], 0);
@@ -153,7 +161,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address[MAX_PLAYERS_ROUND_ONE] memory Users;
         for (uint i = 0; i < Users.length; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         }
         address player = liveOrDie.pickRandomPlayer(MAX_PLAYERS_ROUND_ONE);
         assertTrue(liveOrDie.isPlayerInBarrel(0, player));
@@ -166,7 +175,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address[] memory Users = new address[](numberOfPlayers);
         for (uint8 i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
             assertEq(liveOrDie.getPlayerAddress(liveOrDie.getBarrelIndex(), i % MAX_PLAYERS_ROUND_ONE), Users[i]);
         }
         assertEq(liveOrDie.getBarrelIndex(), (numberOfPlayers - 1) / MAX_PLAYERS_ROUND_ONE);
@@ -179,7 +189,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         }
         // Make sure the mapping of the players is correct and that the players are correctly dispatched in the barrels.
         for (uint i = 0; i < numberOfPlayers; i++) {
@@ -194,7 +205,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
             if (i > 0 && i % MAX_PLAYERS_ROUND_ONE == 0) {
                 uint256 amount = 0;
                 uint256 barrelIndex = liveOrDie.getBarrelIndex() - 1;
@@ -217,7 +229,8 @@ contract TestLiveOrDie is Test, IERC20Errors {
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
-            liveOrDie.addPlayerToAvailableBarrel(Users[i]);
+            hoax(Users[i], 10 ether);
+            liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }();
         }
         vm.expectRevert(
             abi.encodeWithSelector(
