@@ -10,7 +10,7 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-// import {console} from "forge-std/Test.sol";
+import {console2} from "forge-std/Test.sol";
 
 // Events.
 event playerEliminated(address indexed _player, uint _barrelIndex);
@@ -54,7 +54,7 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
 
     uint internal barrelIndex = 0; // Number of barrels.
     mapping(uint => Barrel) internal barrels; // Maaping between BarrelID and the barrels.
-    mapping(address => bool) internal paidUsers; // Mapping to keep track of who paid to play round 1.
+    mapping(address => bool) internal paidPlayers; // Mapping to keep track of who paid to play round 1.
 
     constructor(address initialOwner) ERC20("LiveOrDie", "LOD") ERC20Permit("LiveOrDie") Ownable(initialOwner)  {
         barrelIndex = 0;
@@ -75,7 +75,8 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
             // Todo: Change the way we track who has paid. For now, a player could pay once and play again several times. 
             // Todo: Use a mapping of mapping instead of a one level mapping. 
             // Todo: That way we would know for each new barrel.
-            paidUsers[msg.sender] = true; // Keeps track of who has paid to take part of the game (for Roune One).
+            addPlayerToAvailableBarrel(msg.sender); // This will revert if the player is already in the current barrel.
+            paidPlayers[msg.sender] = true; // Keeps track of who has paid to take part of the game (for Roune One).
             return true;
         }
     }
@@ -175,6 +176,10 @@ contract LiveOrDie is ERC20, ERC20Burnable, ERC20Permit, Ownable {
     function getMaxPlayersFirstRound() public pure returns (uint) {
         return MAX_PLAYERS_ROUND_ONE;
     }
+
+    function hasUserPaid(address _player) public view returns (bool) {
+        return paidPlayers[_player];
+    }
 }
 
 /**
@@ -193,7 +198,7 @@ contract LiveOrDieRoundTwo is ERC20, ERC20Burnable, Ownable {
     mapping(address => bool) internal paidUsers; // Mapping to keep track of who paid to play round 1.
     LiveOrDie liveOrDie;
 
-     constructor(address _initialOwner, LiveOrDie _liveOrDie) ERC20("LiveOrDieRoundTwo", "LODR2") Ownable(_initialOwner) {
+    constructor(address _initialOwner, LiveOrDie _liveOrDie) ERC20("LiveOrDieRoundTwo", "LODR2") Ownable(_initialOwner) {
         liveOrDie = _liveOrDie;
         barrelIndex = 0;
 
@@ -204,6 +209,7 @@ contract LiveOrDieRoundTwo is ERC20, ERC20Burnable, Ownable {
     }
 
         function addPlayerToAvailableBarrel(address _player) public {
+            console2.log("Address _player:", _player);
             if (liveOrDie.balanceOf(_player) < 1 * 10 ** liveOrDie.decimals()) {
                 revert PlayerNeedLODTokenToPlay(_player);
             } else {

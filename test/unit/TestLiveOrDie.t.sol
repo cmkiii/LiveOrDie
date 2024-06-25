@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console2} from "forge-std/Test.sol";
+import { Test, console2 } from "forge-std/Test.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import {LiveOrDie, LiveOrDieRoundTwo, AmountIsNotEnough, BarrelIsNotFull, PlayerAlreadyInTheBarrel, playerAddedToABarrel, playerEliminated, PlayerNeedLODTokenToPlay} from "../../src/LiveOrDie.sol";
-import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {DeployLiveOrDie} from "../../script/DeployLiveOrDie.s.sol";
+import { LiveOrDie, LiveOrDieRoundTwo, AmountIsNotEnough, BarrelIsNotFull, PlayerAlreadyInTheBarrel, playerAddedToABarrel, playerEliminated, PlayerNeedLODTokenToPlay } from "../../src/LiveOrDie.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { DeployLiveOrDie } from "../../script/DeployLiveOrDie.s.sol";
 
 contract TestLiveOrDie is Test, IERC20Errors {
     LiveOrDie public liveOrDie;
@@ -44,13 +44,17 @@ contract TestLiveOrDie is Test, IERC20Errors {
         address User1 = makeAddr("User1");
         address User2 = makeAddr("User2");
         hoax(User1, 10 ether);
-        assertTrue(liveOrDie.payEntranceFee{value: PRICE_ROUND_ONE}()); // This should not revert as we are sending the minimum amount.
+        assertTrue(liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }()); // This should not revert as we are sending the minimum amount.
+        vm.prank(User1);
+        vm.expectRevert(abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1));
+        liveOrDie.payEntranceFee{ value: PRICE_ROUND_ONE }(); // This should revert as the player is already part of an existing barrel.
         hoax(User2, 10 ether);
-        vm.expectRevert(
-            abi.encodeWithSelector(AmountIsNotEnough.selector, User2, 0.1 ether)
-        );
-        liveOrDie.payEntranceFee{value: 0.1 ether}(); // This should revert as we are not sending the minimum amount.
+        vm.expectRevert(abi.encodeWithSelector(AmountIsNotEnough.selector, User2, 0.1 ether));
+        liveOrDie.payEntranceFee{ value: 0.1 ether }(); // This should revert as we are not sending the minimum amount.
         assertEq(address(liveOrDie).balance, PRICE_ROUND_ONE); // Check that our smart contract received the funds from User1.
+        assertTrue(liveOrDie.isPlayerInBarrel(0, User1));
+        assertEq(liveOrDie.hasUserPaid(User1), true);
+        assertEq(liveOrDie.hasUserPaid(User2), false);
     }
 
     function testMintingATokenForAUser() public {
@@ -116,9 +120,7 @@ contract TestLiveOrDie is Test, IERC20Errors {
     function testCantHaveTheSamePlayerTwiceInTheSameBarrel() public {
         address User1 = makeAddr("User1");
         liveOrDie.addPlayerToAvailableBarrel(User1);
-        vm.expectRevert(
-            abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(PlayerAlreadyInTheBarrel.selector, 0, User1));
         liveOrDie.addPlayerToAvailableBarrel(User1);
     }
 
@@ -162,78 +164,48 @@ contract TestLiveOrDie is Test, IERC20Errors {
     function testInsertRandomNumberOfPlayers(uint8 numberOfPlayers) public {
         vm.assume(numberOfPlayers > 0);
         address[] memory Users = new address[](numberOfPlayers);
-
         for (uint8 i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
             liveOrDie.addPlayerToAvailableBarrel(Users[i]);
-            assertEq(
-                liveOrDie.getPlayerAddress(
-                    liveOrDie.getBarrelIndex(),
-                    i % MAX_PLAYERS_ROUND_ONE
-                ),
-                Users[i]
-            );
+            assertEq(liveOrDie.getPlayerAddress(liveOrDie.getBarrelIndex(), i % MAX_PLAYERS_ROUND_ONE), Users[i]);
         }
-        assertEq(
-            liveOrDie.getBarrelIndex(),
-            (numberOfPlayers - 1) / MAX_PLAYERS_ROUND_ONE
-        );
+        assertEq(liveOrDie.getBarrelIndex(), (numberOfPlayers - 1) / MAX_PLAYERS_ROUND_ONE);
     }
 
     function testIsThePlayerListCorrectlyFilled() public {
         uint numberOfPlayers = 13778;
         address[] memory Users = new address[](numberOfPlayers);
-
         // Create a list of players.
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
-
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
             liveOrDie.addPlayerToAvailableBarrel(Users[i]);
         }
-
         // Make sure the mapping of the players is correct and that the players are correctly dispatched in the barrels.
         for (uint i = 0; i < numberOfPlayers; i++) {
-            assertEq(
-                liveOrDie.getPlayerAddress(
-                    i / MAX_PLAYERS_ROUND_ONE,
-                    i % MAX_PLAYERS_ROUND_ONE
-                ),
-                Users[i]
-            );
+            assertEq(liveOrDie.getPlayerAddress(i / MAX_PLAYERS_ROUND_ONE, i % MAX_PLAYERS_ROUND_ONE), Users[i]);
         }
     }
 
     function testOnePlayerDidNotReceivedATokenAndAllOthersDid() public {
         uint numberOfPlayers = 13778;
         address[] memory Users = new address[](numberOfPlayers);
-
         // Create a list of players.
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
-
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
             liveOrDie.addPlayerToAvailableBarrel(Users[i]);
-
             if (i > 0 && i % MAX_PLAYERS_ROUND_ONE == 0) {
                 uint256 amount = 0;
                 uint256 barrelIndex = liveOrDie.getBarrelIndex() - 1;
-
                 // For each full barrel, count how many tokens have been created
                 // by adding up the total number of tokens in that barrel.
-
                 for (uint j = 0; j < MAX_PLAYERS_ROUND_ONE; j++) {
-                    amount += liveOrDie.balanceOf(
-                        liveOrDie.getPlayerAddress(barrelIndex, j)
-                    );
+                    amount += liveOrDie.balanceOf(liveOrDie.getPlayerAddress(barrelIndex, j));
                 }
-
                 // Make sure that for each full barrel, there is a "dead" player who has not received a token.
                 // And that the other "living" players have received a token.
-                assertEq(
-                    amount,
-                    (MAX_PLAYERS_ROUND_ONE - 1) * 10 ** liveOrDie.decimals()
-                );
+                assertEq(amount, (MAX_PLAYERS_ROUND_ONE - 1) * 10 ** liveOrDie.decimals());
             }
         }
     }
@@ -241,15 +213,12 @@ contract TestLiveOrDie is Test, IERC20Errors {
     function testCanPlayRoundTwoOnlyIfYouHaveALiveOrDieToken() public {
         uint numberOfPlayers = 13;
         address[] memory Users = new address[](numberOfPlayers);
-
         // Create a list of players.
         // Then we add players into an available barrel, grouped by barrel size (MAX_PLAYERS_ROUND_ONE).
-
         for (uint i = 0; i < numberOfPlayers; i++) {
             Users[i] = makeAddr(Strings.toString(i));
             liveOrDie.addPlayerToAvailableBarrel(Users[i]);
         }
-
         vm.expectRevert(
             abi.encodeWithSelector(
                 ERC20InsufficientAllowance.selector,
@@ -259,14 +228,10 @@ contract TestLiveOrDie is Test, IERC20Errors {
             )
         );
         liveOrDieRoundTwo.addPlayerToAvailableBarrel(Users[0]);
-
         // Todo:
         // vm.deal / vm.prank to give allowance and test with allowance.
         // liveOrDieRoundTwo.addPlayerToAvailableBarrel(Users[1]);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(PlayerNeedLODTokenToPlay.selector, Users[2])
-        );
+        vm.expectRevert(abi.encodeWithSelector(PlayerNeedLODTokenToPlay.selector, Users[2]));
         liveOrDieRoundTwo.addPlayerToAvailableBarrel(Users[2]);
         // liveOrDieRoundTwo.addPlayerToAvailableBarrel(Users[3]);
         // liveOrDieRoundTwo.addPlayerToAvailableBarrel(Users[4]);
